@@ -529,8 +529,14 @@ func NewUserContext(scaledContext *ScaledContext, config rest.Config, clusterNam
 }
 
 func (w *UserContext) Start(ctx context.Context) error {
-	logrus.Info("Starting cluster controllers for ", w.ClusterName)
-	if err := controller.SyncThenStart(w.runContext, 50, w.Management.controllers()...); err != nil {
+	logrus.Infof("Starting cluster controllers for %s", w.ClusterName)
+	mgmtCtx, cancel := context.WithCancel(w.runContext)
+	defer func() {
+		<-ctx.Done()
+		logrus.Infof("Stopping management controllers for cluster %s", w.ClusterName)
+		cancel()
+	}()
+	if err := controller.SyncThenStart(mgmtCtx, 50, w.Management.controllers()...); err != nil {
 		return err
 	}
 	return controller.SyncThenStart(ctx, 5, w.controllers()...)
